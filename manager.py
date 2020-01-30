@@ -3,6 +3,7 @@
 from netmiko import ConnectHandler
 import argparse
 import json
+import multiprocessing as mp
 import os
 import re
 import threading
@@ -207,24 +208,28 @@ def watch_command():
 
 # Global variables
 running_configs = {}
-
-# Connect to switches
-config = load_conf('config.json')
 switches = {}
-for switch_config in config['switch']:
+config = load_conf('config.json')
+
+# Initialization: connect to switches and get initial running config
+def init(switch_config):
   switch_ip = switch_config['ip']
-  switches[switch_ip] = {
+  switch = {
+    'ip': switch_ip,
     'connection': login(switch_config),
     'config': switch_config,
     'lock': Lock()
   }
 
-# Get initial running config from switch
-# When administrator login to management web, retrieve running config again
-for switch_ip, switch in switches.items():
   running_config = get_switch_config(switch)
   running_config = parse_config(running_config)
+
+  switches[switch_ip] = switch
   running_configs[switch_ip] = running_config
+
+ts = [threading.Thread(target=init, args=(switch_config, )) for switch_config in config['switch']]
+for t in ts: t.start()
+for t in ts: t.join()
 
 # Keep connections alive
 threads['watch_connection'] = threading.Thread(target=watch_connection)

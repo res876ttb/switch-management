@@ -1,0 +1,34 @@
+{
+  "name": "switch-management",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@material-ui/core": "^4.8.3",
+    "@material-ui/icons": "^4.5.1",
+    "@zeit/next-sass": "^1.0.1",
+    "axios": "^0.19.2",
+    "next": "^9.2.0",
+    "node-sass": "^4.13.1",
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0",
+    "zeromq": "^6.0.0-beta.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "dev": "next",
+    "build": "next build",
+    "start": "next start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/res876ttb/switch-management.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/res876ttb/switch-management/issues"
+  },
+  "homepage": "https://github.com/res876ttb/switch-management#readme"
+}
