@@ -49,6 +49,7 @@ def login(config):
   return con
 
 def check_redundancy(path):
+  print('> Checking redundancy...')
   hashes = {}
   toRemove = []
   dirs = sorted([dir for dir in os.listdir(path) if os.path.isdir(path + '/' + dir)], reverse=True)
@@ -88,6 +89,8 @@ def check_redundancy(path):
       if len(os.listdir(dirname)) == 0:
         print(dirname)
         os.rmdir(dirname)
+  
+  print('Checking redundancy... Done')
 
 def backup(switch_config):
   switch_ip = switch_config['ip']

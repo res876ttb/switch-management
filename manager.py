@@ -9,12 +9,10 @@ import time
 import zmq
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--address', help='Set serving address and port for CSCC web service. Default: `140.114.87.87:5454`', default='140.114.87.87:5454', type=str)
+parser.add_argument('--port', help='Set serving port for CSCC IP web service. Default: 5454.', default='5454', type=str)
 parser.add_argument('--keepalive', help='Timeout(sec) ot send SSH/Telnet alive packet. Default: 60 secs.', default=60)
 parser.add_argument('--check_duration', help='Timeout(sec) to check connection aliveness. Default: 5 secs.', default=5)
 args = parser.parse_args()
-
-# TODO: lock for each switch
 
 class Lock:
   def __init__(self):
@@ -140,17 +138,12 @@ def logout(switch):
     else:
       print('Connection to switch %s has lost. Skip logout.' % switch['config']['ip'])
 
-config = load_conf('config.json')
-switches = {}
-for switch_config in config['switch']:
-  switch_ip = switch_config['ip']
-  switches[switch_ip] = {
-    'connection': login(switch_config),
-    'config': switch_config,
-    'lock': Lock()
-  }
-
 def watch_connection():
+  '''
+  Keep connections to switches alive.
+  '''
+  global end
+
   while True:
     time.sleep(args.check_duration)
     if end:
@@ -169,25 +162,67 @@ def watch_command():
   Description:
     Watch command from IP management web.
   '''
+  global end
 
   # Create zmq socket response side
   context = zmq.Context()
   socket = context.socket(zmq.REP)
-  socket.bind('tcp://%s' % args.address)
+  socket.bind('tcp://*:%s' % args.port)
+  print('> Waiting command on port %s...' % args.port)
 
   # Watch command and response
-  while True:
+  while not end:
     cmd = json.loads(socket.recv_string())
-    if cmd['type'] == 'show all config':
-      socket.send_string()
+    print('> Receive command type', cmd['type'])
 
-threads['watch_connection'] = threading.Thread(target=watch_connection)
-threads['watch_connection'].start()
+    if cmd['type'] == 'show all config':
+      socket.send_string(running_configs)
+    
+    elif cmd['type'] == 'show config':
+      switch_ip = cmd['switch_ip']
+      print('> Fetching config from switch %s...' % switch_ip)
+      running_config = get_switch_config(switches[switch_ip])
+      running_config = parse_config(running_config)
+      running_config = json.dumps(running_config)
+      print('> Fetching config from switch %s... Done' % switch_ip)
+      socket.send_string(running_config)
+    
+    elif cmd['type'] == 'shutdown':
+      print('> Shutdown')
+      end = True
+      socket.send_string('done')
+    
+    else:
+      print('>>> Unknown command type')
+      socket.send_string('')
+
+# Global variables
+running_configs = {}
+
+# Connect to switches
+config = load_conf('config.json')
+switches = {}
+for switch_config in config['switch']:
+  switch_ip = switch_config['ip']
+  switches[switch_ip] = {
+    'connection': login(switch_config),
+    'config': switch_config,
+    'lock': Lock()
+  }
 
 # Get initial running config from switch
-# When administrator login management web, retrieve running config again
+# When administrator login to management web, retrieve running config again
 for switch_ip, switch in switches.items():
   running_config = get_switch_config(switch)
+  running_config = parse_config(running_config)
+  running_config = json.dumps(running_config)
+  running_configs[switch_ip] = running_config
+
+# Keep connections alive
+threads['watch_connection'] = threading.Thread(target=watch_connection)
+threads['watch_connection'].start()
+threads['watch_command'] = threading.Thread(target=watch_command)
+threads['watch_command'].start()
 
 # Waiting for end
 while not end:
