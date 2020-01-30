@@ -90,7 +90,7 @@ def check_redundancy(path):
         print(dirname)
         os.rmdir(dirname)
   
-  print('Checking redundancy... Done')
+  print('> Checking redundancy... Done')
 
 def backup(switch_config):
   switch_ip = switch_config['ip']

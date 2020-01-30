@@ -4,6 +4,7 @@ from netmiko import ConnectHandler
 import argparse
 import json
 import os
+import re
 import threading
 import time
 import zmq
@@ -75,12 +76,18 @@ def parse_config(running_config):
   i = 0
   while i < len(running_config):
     if 'interface' in running_config[i]:
+      if conf:
+        result['port'][interface_name] = conf
+        conf = ''
       interface = True
-      interface_name = running_config[i].split(' ')[1]
+      interface_name = re.sub(r'\s+', ' ', running_config[i]).split(' ',  1)[1]
       i += 1
     elif 'ip access-list' in running_config[i]:
+      if conf:
+        result['acl'][acl_name] = conf
+        conf = ''
       access_list = True
-      acl_name = running_config[i].split(' ')[-1]
+      acl_name = re.sub(r'\s+', ' ', running_config[i]).split(' ',  3)[-1]
       i += 1
     
     if interface:
@@ -88,7 +95,6 @@ def parse_config(running_config):
         conf += running_config[i][1:] + '\n'
       else:
         result['port'][interface_name] = conf
-
         interface = False
         conf = ''
 
@@ -101,7 +107,6 @@ def parse_config(running_config):
         conf = ''
 
     i += 1
-
   return result
 
 def login(config):
@@ -176,7 +181,7 @@ def watch_command():
     print('> Receive command type', cmd['type'])
 
     if cmd['type'] == 'show all config':
-      socket.send_string(running_configs)
+      socket.send_string(json.dumps(running_configs))
     
     elif cmd['type'] == 'show config':
       switch_ip = cmd['switch_ip']
@@ -190,6 +195,10 @@ def watch_command():
     elif cmd['type'] == 'shutdown':
       print('> Shutdown')
       end = True
+      socket.send_string('done')
+    
+    elif cmd['type'] == 'login':
+      print('> Login user %s' % cmd['user'])
       socket.send_string('done')
     
     else:
@@ -215,7 +224,6 @@ for switch_config in config['switch']:
 for switch_ip, switch in switches.items():
   running_config = get_switch_config(switch)
   running_config = parse_config(running_config)
-  running_config = json.dumps(running_config)
   running_configs[switch_ip] = running_config
 
 # Keep connections alive
